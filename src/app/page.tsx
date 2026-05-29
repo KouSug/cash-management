@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { loadData, AppData } from '@/lib/api';
 import Link from 'next/link';
 
+import DashboardCharts from '@/components/DashboardCharts';
+
 export default function Dashboard() {
   const [data, setData] = useState<AppData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,6 +64,8 @@ export default function Dashboard() {
           <div style={{ fontSize: '2.5rem', fontWeight: 700, letterSpacing: '-1px' }}>¥{balance.toLocaleString()}</div>
         </div>
       </div>
+
+      {data && <DashboardCharts data={data} />}
 
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>

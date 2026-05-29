@@ -11,6 +11,7 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
 
   // Form states
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [date, setDate] = useState('');
   const [clientName, setClientName] = useState('');
   const [itemName, setItemName] = useState('');
@@ -18,6 +19,10 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
   const [quantity, setQuantity] = useState('1'); // Default to 1
   const [category, setCategory] = useState('');
   const [memo, setMemo] = useState('');
+
+  // Filter states
+  const [filterMonth, setFilterMonth] = useState('all');
+  const [filterCategory, setFilterCategory] = useState('all');
 
   const [mounted, setMounted] = useState(false);
 
@@ -32,9 +37,11 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
         setError('設定画面から保存先パスを設定してください。');
       } else {
         setData(appData);
-        if (appData.categories.length > 0) {
-          setCategory(appData.categories[0]);
-        }
+        // Set default category based on type
+        const initialCategories = type === 'income' 
+          ? ['本業売上', '副業・スポット売上', 'その他収入'] 
+          : ['ツール・サブスク費', '消耗品費', '旅費交通費', '接待交際費', '新聞図書費・研修費', '地代家賃', '水道光熱費', '通信費', '外注費', '諸経費・雑費'];
+        setCategory(initialCategories[0]);
       }
       setLoading(false);
     }
@@ -53,7 +60,34 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
     };
   }, [isFormOpen]);
 
-  const handleAdd = async () => {
+  const resetForm = () => {
+    setEditingId(null);
+    setDate(new Date().toISOString().split('T')[0]);
+    setClientName('');
+    setItemName('');
+    setUnitPrice('');
+    setQuantity('1');
+    const initialCategories = type === 'income' 
+      ? ['本業売上', '副業・スポット売上', 'その他収入'] 
+      : ['ツール・サブスク費', '消耗品費', '旅費交通費', '接待交際費', '新聞図書費・研修費', '地代家賃', '水道光熱費', '通信費', '外注費', '諸経費・雑費'];
+    setCategory(initialCategories[0]);
+    setMemo('');
+    setIsFormOpen(false);
+  };
+
+  const handleEdit = (tx: Transaction) => {
+    setEditingId(tx.id);
+    setDate(tx.date);
+    setClientName(tx.clientName || '');
+    setItemName(tx.itemName || '');
+    setUnitPrice(tx.unitPrice?.toString() || '');
+    setQuantity(tx.quantity?.toString() || '1');
+    setCategory(tx.category);
+    setMemo(tx.memo || '');
+    setIsFormOpen(true);
+  };
+
+  const handleSave = async () => {
     if (!data) return;
     
     const price = Number(unitPrice);
@@ -87,10 +121,16 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
       itemName: type === 'expense' ? itemName : undefined,
     };
 
-    // Sort transactions by date descending
-    const newTransactions = [newTx, ...data.transactions].sort((a, b) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
+    let newTransactions;
+    if (editingId) {
+      newTransactions = data.transactions.map(tx => 
+        tx.id === editingId ? { ...newTx, id: editingId } : tx
+      );
+    } else {
+      newTransactions = [newTx, ...data.transactions].sort((a, b) => 
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+    }
 
     const newData = {
       ...data,
@@ -100,12 +140,7 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
     const success = await saveData(newData);
     if (success) {
       setData(newData);
-      setUnitPrice('');
-      setQuantity('1');
-      setClientName('');
-      setItemName('');
-      setMemo('');
-      setIsFormOpen(false); // Close form on success
+      resetForm();
     } else {
       alert('保存に失敗しました。');
     }
@@ -137,19 +172,32 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
     );
   }
 
-  const filteredTx = data?.transactions.filter(t => t.type === type) || [];
-  const title = type === 'income' ? '収入 (Income)' : '支出 (Expenses)';
+  const allTypeTx = data?.transactions.filter(t => t.type === type) || [];
+  
+  const uniqueMonths = Array.from(new Set(allTypeTx.map(t => t.date.substring(0, 7)))).sort().reverse();
+  
+  const filteredTx = allTypeTx.filter(t => {
+    const matchMonth = filterMonth === 'all' || t.date.startsWith(filterMonth);
+    const matchCategory = filterCategory === 'all' || t.category === filterCategory;
+    return matchMonth && matchCategory;
+  });
+
+  const title = type === 'income' ? '収入' : '支出';
   const color = type === 'income' ? 'var(--success-color)' : 'var(--danger-color)';
 
   const calculatedAmount = (Number(unitPrice) || 0) * (Number(quantity) || 0);
+
+  const currentCategories = type === 'income' 
+    ? ['本業売上', '副業・スポット売上', 'その他収入'] 
+    : ['ツール・サブスク費', '消耗品費', '旅費交通費', '接待交際費', '新聞図書費・研修費', '地代家賃', '水道光熱費', '通信費', '外注費', '諸経費・雑費'];
 
   return (
     <>
       {isFormOpen && mounted && createPortal(
         <>
-          <div className="drawer-overlay" onClick={() => setIsFormOpen(false)} />
+          <div className="drawer-overlay" onClick={resetForm} />
           <div className="drawer">
-            <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', color }}>{title}の追加</h2>
+            <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', color }}>{title}の{editingId ? '編集' : '追加'}</h2>
         
         <div className="form-group">
           <label className="form-label">日付</label>
@@ -171,7 +219,7 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
         <div className="form-group">
           <label className="form-label">カテゴリ</label>
           <select className="form-input" value={category} onChange={e => setCategory(e.target.value)}>
-            {data?.categories.map(c => <option key={c} value={c}>{c}</option>)}
+            {currentCategories.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
 
@@ -197,8 +245,8 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
         </div>
         
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn" onClick={handleAdd} style={{ flex: 1 }}>追加する</button>
-          <button className="btn btn-secondary" onClick={() => setIsFormOpen(false)}>キャンセル</button>
+          <button className="btn" onClick={handleSave} style={{ flex: 1 }}>{editingId ? '更新する' : '追加する'}</button>
+          <button className="btn btn-secondary" onClick={resetForm}>キャンセル</button>
         </div>
       </div>
       </>,
@@ -207,8 +255,20 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
 
     <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2rem' }}>
       <div className="card" style={{ gridColumn: '1 / -1' }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1.5rem' }}>
-          <button className="btn" onClick={() => setIsFormOpen(true)}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+          
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <select className="form-input" style={{ width: 'auto', marginBottom: 0, padding: '0.5rem 1rem' }} value={filterMonth} onChange={e => setFilterMonth(e.target.value)}>
+              <option value="all">すべての月</option>
+              {uniqueMonths.map(m => <option key={m} value={m}>{m.replace('-', '年')}月</option>)}
+            </select>
+            <select className="form-input" style={{ width: 'auto', marginBottom: 0, padding: '0.5rem 1rem' }} value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+              <option value="all">すべてのカテゴリ</option>
+              {currentCategories.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          <button className="btn" onClick={() => { resetForm(); setIsFormOpen(true); }}>
             + 新規追加
           </button>
         </div>
@@ -225,7 +285,7 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
                   <th>単価 × 個数</th>
                   <th>金額</th>
                   <th>メモ</th>
-                  <th style={{ width: '60px', textAlign: 'center' }}>操作</th>
+                  <th style={{ width: '80px', textAlign: 'center' }}>操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -248,12 +308,20 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
                       {tx.memo || '-'}
                     </td>
                     <td style={{ textAlign: 'center' }}>
-                      <button className="btn-icon" onClick={() => handleDelete(tx.id)} title="削除">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="3 6 5 6 21 6"></polyline>
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        </svg>
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                        <button className="btn-icon" onClick={() => handleEdit(tx)} title="編集">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                          </svg>
+                        </button>
+                        <button className="btn-icon" onClick={() => handleDelete(tx.id)} title="削除">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
