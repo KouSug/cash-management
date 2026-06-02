@@ -34,7 +34,7 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
     async function init() {
       const appData = await loadData();
       if (!appData) {
-        setError('設定画面から保存先パスを設定してください。');
+        setError('設定画面からGoogleでログインしてください。');
       } else {
         setData(appData);
         // Set default category based on type

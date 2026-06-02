@@ -2,41 +2,29 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useGoogleLogin } from '@react-oauth/google';
 
 export default function Settings() {
-  const [dataPath, setDataPath] = useState('');
-  const [saveStatus, setSaveStatus] = useState('');
+  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    const savedPath = localStorage.getItem('cashAppDataPath');
-    if (savedPath) {
-      setDataPath(savedPath);
-    }
+    setToken(localStorage.getItem('google_access_token'));
   }, []);
 
-  const handleSave = () => {
-    if (!dataPath) {
-      setSaveStatus('パスを入力してください。');
-      setTimeout(() => setSaveStatus(''), 3000);
-      return;
-    }
-    localStorage.setItem('cashAppDataPath', dataPath);
-    setSaveStatus('保存しました！');
-    setTimeout(() => setSaveStatus(''), 3000);
-  };
+  const login = useGoogleLogin({
+    scope: 'https://www.googleapis.com/auth/drive.file',
+    onSuccess: (codeResponse) => {
+      localStorage.setItem('google_access_token', codeResponse.access_token);
+      setToken(codeResponse.access_token);
+    },
+    onError: (error) => console.log('Login Failed:', error)
+  });
 
-  const handleBrowse = async () => {
-    try {
-      const res = await fetch('/api/pick-file');
-      const data = await res.json();
-      if (data.path) {
-        setDataPath(data.path);
-      } else if (data.error) {
-        alert('フォルダ選択ダイアログの表示に失敗しました。: ' + data.error);
-      }
-    } catch (err) {
-      alert('エラーが発生しました。手動でパスを入力してください。');
-    }
+  const logout = () => {
+    localStorage.removeItem('google_access_token');
+    localStorage.removeItem('google_folder_id');
+    localStorage.removeItem('google_file_id');
+    setToken(null);
   };
 
   return (
@@ -48,40 +36,28 @@ export default function Settings() {
         </Link>
       </div>
       
-      <div className="form-group">
-        <label className="form-label" htmlFor="dataPath">
-          データファイルの保存先パス (絶対パス)
-        </label>
-        <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', lineHeight: 1.5 }}>
-          クラウドストレージ（Dropbox, Google Driveなど）のローカルフォルダ内のパスを指定することで、複数端末で同期できます。<br/><br/>
-          例 (Windows): <code style={{background: 'var(--bg-color)', padding: '0.2rem', borderRadius: '4px'}}>C:\Users\Username\Dropbox\cash-data.json</code><br/>
-          例 (Mac): <code style={{background: 'var(--bg-color)', padding: '0.2rem', borderRadius: '4px'}}>/Users/Username/Dropbox/cash-data.json</code>
+      <div className="form-group" style={{ textAlign: 'center', padding: '2rem 0' }}>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Googleドライブ連携</h2>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', lineHeight: 1.6 }}>
+          このアプリはデータをGoogleドライブに保存します。<br/>
+          データは「ApplicationData」という専用フォルダに安全に保管されます。
         </p>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <input 
-            id="dataPath"
-            type="text" 
-            className="form-input" 
-            style={{ flex: 1 }}
-            value={dataPath}
-            onChange={(e) => setDataPath(e.target.value)}
-            placeholder="絶対パスを入力..."
-          />
-          <button type="button" className="btn btn-secondary" onClick={handleBrowse}>
-            参照...
+
+        {token ? (
+          <div>
+            <div style={{ padding: '1rem', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: 'var(--success-color)', borderRadius: '8px', marginBottom: '1.5rem', fontWeight: 600 }}>
+              ✓ Googleドライブに接続済みです
+            </div>
+            <button className="btn btn-secondary" onClick={logout}>
+              ログアウト
+            </button>
+          </div>
+        ) : (
+          <button className="btn" onClick={() => login()} style={{ backgroundColor: '#4285F4', color: 'white' }}>
+            Googleでログイン
           </button>
-        </div>
+        )}
       </div>
-
-      <button className="btn" onClick={handleSave}>
-        保存する
-      </button>
-
-      {saveStatus && (
-        <p style={{ marginTop: '1rem', color: saveStatus.includes('入力') ? 'var(--danger-color)' : 'var(--success-color)', fontWeight: 500 }}>
-          {saveStatus}
-        </p>
-      )}
     </div>
   );
 }

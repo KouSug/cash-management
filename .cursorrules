@@ -7,11 +7,11 @@
 - Environment: ユーザーのローカルPC (Windows環境想定) での稼働専用
 
 ## アーキテクチャとデータ保存の方針
-- **データストア**: ローカルのJSONファイル (例: `C:\Users\Username\Dropbox\data.json`)。
-  - クラウドストレージ（Dropbox, Google Drive等）の同期フォルダ内に保存することで、複数端末間でのデータ同期を実現する。
-- **パスの管理**: ユーザーが設定画面(Settings)で保存先パスを指定し、ブラウザの `localStorage` (`cashAppDataPath`) に保持する。
-- **API通信**: クライアントからNext.jsのAPI (`/api/data`) を叩く際、HTTPヘッダー `x-data-path` にパスを含める。
-  - **【重要】** 日本語パスによるエラー (`String contains non ISO-8859-1 code point`) を防ぐため、送信時は `encodeURIComponent` でエンコードし、サーバー側で `decodeURIComponent` すること。
+- **デプロイ先**: GitHub Pages を想定。`next.config.ts` で `output: 'export'` および `basePath` を設定。
+- **データストア**: ユーザー個人の **Google ドライブ** (`ApplicationData` フォルダ内の `data.json`)。
+- **認証**: `@react-oauth/google` による OAuth 2.0 認証 (`useGoogleLogin`) を使用し、`drive.file` スコープを要求する。
+- **API通信**: バックエンド(Node.js)を使用せず、フロントエンドから直接 Google Drive REST API へリクエストを送信する。
+  - クライアントIDは `.env.local` の `NEXT_PUBLIC_GOOGLE_CLIENT_ID` から取得。
 
 ## 主要機能とUI構造
 1. **ダッシュボード (`/`)**: 収支サマリーと直近の取引履歴に加え、`recharts`ライブラリを使用した「収入・支出・収支」の月別積み上げ棒グラフを表示。
@@ -26,8 +26,8 @@
    - 収入時は `clientName` (クライアント名)、支出時は `itemName` (品名) を使用。
    - 金額 (`amount`) は直接入力させず、`unitPrice` (単価) × `quantity` (個数) で自動計算する。
 4. **設定 (`/settings`)**:
-   - データ保存先パスの設定。
-   - ネイティブのWindowsファイル選択ダイアログを起動するため、`/api/pick-file` (内部でPowerShellを実行) を使用する。文字化け防止のため、PowerShell側で `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8` を指定する。
+   - Googleアカウントでのログイン/ログアウト画面。
+   - ログイン状態は `localStorage` の `google_access_token` 等で管理。
 
 ## コーディング・デザインの指針
 - **UI/UX**: ダークモードを基調としたプレミアムでモダンなデザイン。ガラスモーフィズム、ホバーアニメーション（`transform`, `box-shadow`）、スライドアニメーションを多用する。

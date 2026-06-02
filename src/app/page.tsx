@@ -15,7 +15,7 @@ export default function Dashboard() {
     async function init() {
       const appData = await loadData();
       if (!appData) {
-        setError('データの読み込みに失敗しました。初めての方は設定画面から保存先パスを設定してください。');
+        setError('設定画面からGoogleでログインしてください。');
       } else {
         setData(appData);
       }

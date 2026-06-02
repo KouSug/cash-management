@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
+import Providers from "@/components/Providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,22 +30,24 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable}`}
     >
       <body>
-        <header className="app-header">
-          <div style={{ fontSize: '1.25rem', fontWeight: 700, letterSpacing: '-0.5px' }}>
-            💸 CashFlow
-          </div>
-          <nav className="nav-links">
-            <Link href="/" className="nav-link">ダッシュボード</Link>
-            <Link href="/income" className="nav-link">収入</Link>
-            <Link href="/expenses" className="nav-link">支出</Link>
-            <Link href="/settings" className="nav-link" style={{ marginLeft: '1rem', color: 'var(--accent-color)' }}>
-              ⚙️ 設定
-            </Link>
-          </nav>
-        </header>
-        <main className="container animate-fade-in">
-          {children}
-        </main>
+        <Providers>
+          <header className="app-header">
+            <div style={{ fontSize: '1.25rem', fontWeight: 700, letterSpacing: '-0.5px' }}>
+              💸 CashFlow
+            </div>
+            <nav className="nav-links">
+              <Link href="/" className="nav-link">ダッシュボード</Link>
+              <Link href="/income" className="nav-link">収入</Link>
+              <Link href="/expenses" className="nav-link">支出</Link>
+              <Link href="/settings" className="nav-link" style={{ marginLeft: '1rem', color: 'var(--accent-color)' }}>
+                ⚙️ 設定
+              </Link>
+            </nav>
+          </header>
+          <main className="container animate-fade-in">
+            {children}
+          </main>
+        </Providers>
       </body>
     </html>
   );
