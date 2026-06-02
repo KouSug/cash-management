@@ -8,7 +8,7 @@
 
 ## アーキテクチャとデータ保存の方針
 - **デプロイ先**: GitHub Pages を想定。`next.config.ts` で `output: 'export'` および `basePath` を設定。
-- **データストア**: ユーザー個人の **Google ドライブ** (`ApplicationData` フォルダ内の `data.json`)。
+- **データストア**: ユーザー個人の **Google ドライブ** (`ApplicationData` フォルダ内の `cashflowData.json`)。
 - **認証**: `@react-oauth/google` による OAuth 2.0 認証 (`useGoogleLogin`) を使用し、`drive.file` スコープを要求する。
 - **API通信**: バックエンド(Node.js)を使用せず、フロントエンドから直接 Google Drive REST API へリクエストを送信する。
   - クライアントIDは `.env.local` の `NEXT_PUBLIC_GOOGLE_CLIENT_ID` から取得。
