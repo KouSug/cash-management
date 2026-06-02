@@ -67,9 +67,9 @@ async function getFileId(token: string, folderId: string): Promise<string | null
   let fileId = localStorage.getItem('google_file_id');
   if (fileId) return fileId;
 
-  // Search for data.json inside folder
+  // Search for cashflowData.json inside folder
   const searchRes = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=name='data.json' and '${folderId}' in parents and trashed=false`,
+    `https://www.googleapis.com/drive/v3/files?q=name='cashflowData.json' and '${folderId}' in parents and trashed=false`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
   const searchData = await searchRes.json();
@@ -136,7 +136,7 @@ export async function saveData(data: AppData): Promise<boolean> {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: 'data.json',
+          name: 'cashflowData.json',
           parents: [folderId],
         }),
       });
