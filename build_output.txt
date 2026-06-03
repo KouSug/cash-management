@@ -1,0 +1,29 @@
+
+> cash-management@0.1.0 build
+> next build
+
+⚠ No build cache found. Please configure build caching for faster rebuilds. Read more: https://nextjs.org/docs/messages/no-cache
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+▲ Next.js 16.2.6 (Turbopack)
+- Environments: .env
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript ...
+Failed to type check.
+
+./next.config.ts:6:3
+Type error: Object literal may only specify known properties, and 'eslint' does not exist in type 'NextConfig'.
+
+  [90m4 |[0m   output: [32m'export'[0m,
+  [90m5 |[0m   basePath: process.env.[33mNODE_ENV[0m === [32m'production'[0m ? [32m'/cash-management'[0m : [32m''[0m,
+[31m[1m>[0m [90m6 |[0m   eslint: {
+  [90m  |[0m   [31m[1m^[0m
+  [90m7 |[0m     ignoreDuringBuilds: [36mtrue[0m,
+  [90m8 |[0m   },
+  [90m9 |[0m   typescript: {
+Next.js build worker exited with code: 1 and signal: null
