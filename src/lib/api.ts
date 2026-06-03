@@ -128,7 +128,7 @@ export async function loadData(): Promise<AppData | null> {
 
     if (!res.ok) throw new Error('Failed to fetch data');
     const text = await res.text();
-    let finalData: AppData = text ? JSON.parse(text) : DEFAULT_DATA;
+    const finalData: AppData = text ? JSON.parse(text) : DEFAULT_DATA;
     
     // Merge trial data if transitioning from trial mode
     if (isTrialMode()) {

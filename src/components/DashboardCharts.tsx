@@ -7,11 +7,37 @@ import { AppData } from '@/lib/api';
 const INCOME_COLORS = ['#10b981', '#059669', '#047857', '#34d399', '#6ee7b7'];
 const EXPENSE_COLORS = ['#ef4444', '#f97316', '#f59e0b', '#eab308', '#8b5cf6', '#d946ef', '#f43f5e', '#dc2626', '#ea580c', '#d97706'];
 
+const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: { dataKey: string; value: number; color: string; name: string }[]; label?: string }) => {
+  if (active && payload && payload.length) {
+    const isBalance = payload.length === 1 && payload[0].dataKey === '収支';
+    const total = isBalance ? payload[0].value : payload.reduce((sum: number, entry: { value: number }) => sum + entry.value, 0);
+    
+    return (
+      <div style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)', padding: '1rem', borderRadius: '8px', boxShadow: '0 4px 15px rgba(0, 0, 0, 0.5)' }}>
+        <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>{label?.replace('-', '年')}月</p>
+        {!isBalance && payload.map((entry: { color: string; name: string; value: number }, index: number) => (
+          <div key={index} style={{ display: 'flex', justifyContent: 'space-between', gap: '1.5rem', color: entry.color, fontSize: '0.875rem', marginBottom: '0.25rem' }}>
+            <span>{entry.name}</span>
+            <span style={{ fontWeight: 600 }}>¥{entry.value.toLocaleString()}</span>
+          </div>
+        ))}
+        <div style={{ marginTop: isBalance ? '0' : '0.5rem', paddingTop: isBalance ? '0' : '0.5rem', borderTop: isBalance ? 'none' : '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', gap: '2rem', fontWeight: 'bold' }}>
+          <span>{isBalance ? '収支' : '合計'}</span>
+          <span style={{ color: isBalance ? (total >= 0 ? 'var(--success-color)' : 'var(--danger-color)') : 'inherit' }}>
+            {total > 0 && isBalance ? '+' : ''}¥{total.toLocaleString()}
+          </span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function DashboardCharts({ data }: { data: AppData }) {
   const { incomeData, expenseData, balanceData, incomeCategories, expenseCategories } = useMemo(() => {
-    const iData: Record<string, any> = {};
-    const eData: Record<string, any> = {};
-    const bData: Record<string, any> = {};
+    const iData: Record<string, Record<string, number | string>> = {};
+    const eData: Record<string, Record<string, number | string>> = {};
+    const bData: Record<string, { month: string; 収支: number }> = {};
     const iCategories = new Set<string>();
     const eCategories = new Set<string>();
 
@@ -45,32 +71,6 @@ export default function DashboardCharts({ data }: { data: AppData }) {
       expenseCategories: Array.from(eCategories),
     };
   }, [data]);
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const isBalance = payload.length === 1 && payload[0].dataKey === '収支';
-      const total = isBalance ? payload[0].value : payload.reduce((sum: number, entry: any) => sum + entry.value, 0);
-      
-      return (
-        <div style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)', padding: '1rem', borderRadius: '8px', boxShadow: '0 4px 15px rgba(0, 0, 0, 0.5)' }}>
-          <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>{label.replace('-', '年')}月</p>
-          {!isBalance && payload.map((entry: any, index: number) => (
-            <div key={index} style={{ display: 'flex', justifyContent: 'space-between', gap: '1.5rem', color: entry.color, fontSize: '0.875rem', marginBottom: '0.25rem' }}>
-              <span>{entry.name}</span>
-              <span style={{ fontWeight: 600 }}>¥{entry.value.toLocaleString()}</span>
-            </div>
-          ))}
-          <div style={{ marginTop: isBalance ? '0' : '0.5rem', paddingTop: isBalance ? '0' : '0.5rem', borderTop: isBalance ? 'none' : '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', gap: '2rem', fontWeight: 'bold' }}>
-            <span>{isBalance ? '収支' : '合計'}</span>
-            <span style={{ color: isBalance ? (total >= 0 ? 'var(--success-color)' : 'var(--danger-color)') : 'inherit' }}>
-              {total > 0 && isBalance ? '+' : ''}¥{total.toLocaleString()}
-            </span>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
@@ -133,7 +133,7 @@ export default function DashboardCharts({ data }: { data: AppData }) {
                 <YAxis stroke="var(--text-secondary)" tickFormatter={(val) => `¥${val.toLocaleString()}`} tick={{ fontSize: 12 }} width={80} />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} />
                 <Bar dataKey="収支">
-                  {balanceData.map((entry: any, index: number) => (
+                  {balanceData.map((entry: { month: string; 収支: number }, index: number) => (
                     <Cell key={`cell-${index}`} fill={entry.収支 >= 0 ? 'var(--success-color)' : 'var(--danger-color)'} />
                   ))}
                 </Bar>

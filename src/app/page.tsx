@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { loadData, AppData } from '@/lib/api';
+import { loadData, type AppData } from '@/lib/api';
 import { createPortal } from 'react-dom';
-import Link from 'next/link';
 
 import DashboardCharts from '@/components/DashboardCharts';
 
@@ -15,6 +14,7 @@ export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
     async function init() {
       const appData = await loadData();

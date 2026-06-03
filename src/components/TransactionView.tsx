@@ -31,12 +31,14 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
   const [modalAction, setModalAction] = useState<{ type: 'alert' | 'confirm', message: string; onConfirm?: () => void } | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedIds([]);
   }, [filterMonth, filterCategory]);
 
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
     // Set initial date on client to avoid hydration mismatch
     setDate(new Date().toISOString().split('T')[0]);
@@ -56,7 +58,7 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
       setLoading(false);
     }
     init();
-  }, []);
+  }, [type]);
 
   // Prevent body scrolling when drawer is open
   useEffect(() => {
@@ -131,7 +133,7 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
       itemName: type === 'expense' ? itemName : undefined,
     };
 
-    let newTransactions = editingId
+    const newTransactions = editingId
       ? data.transactions.map(tx => tx.id === editingId ? { ...newTx, id: editingId } : tx)
       : [newTx, ...data.transactions];
 

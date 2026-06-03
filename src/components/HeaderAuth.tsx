@@ -26,6 +26,7 @@ export default function HeaderAuth() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
     const storedToken = localStorage.getItem('google_access_token');
     const storedPic = localStorage.getItem('google_user_picture');
