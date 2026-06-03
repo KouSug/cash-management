@@ -14,16 +14,22 @@ https://nextjs.org/telemetry
   Creating an optimized production build ...
 ✓ Compiled successfully in 3.8s
   Running TypeScript ...
-Failed to type check.
+  Finished TypeScript in 3.1s ...
+  Collecting page data using 3 workers ...
+  Generating static pages using 3 workers (0/6) ...
+  Generating static pages using 3 workers (1/6) 
+  Generating static pages using 3 workers (2/6) 
+  Generating static pages using 3 workers (4/6) 
+✓ Generating static pages using 3 workers (6/6) in 251ms
+  Finalizing page optimization ...
 
-./next.config.ts:6:3
-Type error: Object literal may only specify known properties, and 'eslint' does not exist in type 'NextConfig'.
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /expenses
+├ ○ /icon.svg
+└ ○ /income
 
-  [90m4 |[0m   output: [32m'export'[0m,
-  [90m5 |[0m   basePath: process.env.[33mNODE_ENV[0m === [32m'production'[0m ? [32m'/cash-management'[0m : [32m''[0m,
-[31m[1m>[0m [90m6 |[0m   eslint: {
-  [90m  |[0m   [31m[1m^[0m
-  [90m7 |[0m     ignoreDuringBuilds: [36mtrue[0m,
-  [90m8 |[0m   },
-  [90m9 |[0m   typescript: {
-Next.js build worker exited with code: 1 and signal: null
+
+○  (Static)  prerendered as static content
+
