@@ -24,6 +24,16 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
   const [filterMonth, setFilterMonth] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
 
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  
+  // Custom modal dialog state
+  const [modalAction, setModalAction] = useState<{ type: 'alert' | 'confirm', message: string; onConfirm?: () => void } | null>(null);
+
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [filterMonth, filterCategory]);
+
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -34,7 +44,7 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
     async function init() {
       const appData = await loadData();
       if (!appData) {
-        setError('設定画面からGoogleでログインしてください。');
+        setError('画面右上のボタンからGoogleでログインしてください。');
       } else {
         setData(appData);
         // Set default category based on type
@@ -93,16 +103,16 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
     const price = Number(unitPrice);
     const qty = Number(quantity);
     if (!unitPrice || isNaN(price) || isNaN(qty) || qty <= 0) {
-        alert('単価と個数を正しく入力してください。');
+        setModalAction({ type: 'alert', message: '単価と個数を正しく入力してください。' });
         return;
     }
     
     if (type === 'income' && !clientName) {
-        alert('クライアント名を入力してください。');
+        setModalAction({ type: 'alert', message: 'クライアント名を入力してください。' });
         return;
     }
     if (type === 'expense' && !itemName) {
-        alert('品名を入力してください。');
+        setModalAction({ type: 'alert', message: '品名を入力してください。' });
         return;
     }
 
@@ -121,16 +131,15 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
       itemName: type === 'expense' ? itemName : undefined,
     };
 
-    let newTransactions;
-    if (editingId) {
-      newTransactions = data.transactions.map(tx => 
-        tx.id === editingId ? { ...newTx, id: editingId } : tx
-      );
-    } else {
-      newTransactions = [newTx, ...data.transactions].sort((a, b) => 
-        new Date(b.date).getTime() - new Date(a.date).getTime()
-      );
-    }
+    let newTransactions = editingId
+      ? data.transactions.map(tx => tx.id === editingId ? { ...newTx, id: editingId } : tx)
+      : [newTx, ...data.transactions];
+
+    newTransactions.sort((a, b) => {
+      const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+      if (dateDiff !== 0) return dateDiff;
+      return Number(b.id) - Number(a.id);
+    });
 
     const newData = {
       ...data,
@@ -142,33 +151,99 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
       setData(newData);
       resetForm();
     } else {
-      alert('保存に失敗しました。');
+      setModalAction({ type: 'alert', message: '保存に失敗しました。' });
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (!data) return;
-    if (!window.confirm('本当にこのデータを削除しますか？')) return;
+    setModalAction({
+      type: 'confirm',
+      message: '本当にこのデータを削除しますか？',
+      onConfirm: async () => {
+        const newTransactions = data.transactions.filter(tx => tx.id !== id);
+        const newData = { ...data, transactions: newTransactions };
 
-    const newTransactions = data.transactions.filter(tx => tx.id !== id);
-    const newData = { ...data, transactions: newTransactions };
+        const success = await saveData(newData);
+        if (success) {
+          setData(newData);
+          setSelectedIds(prev => prev.filter(selectedId => selectedId !== id));
+        } else {
+          setModalAction({ type: 'alert', message: '削除に失敗しました。' });
+          return;
+        }
+        setModalAction(null);
+      }
+    });
+  };
 
-    const success = await saveData(newData);
-    if (success) {
-      setData(newData);
-    } else {
-      alert('削除に失敗しました。');
-    }
+  const handleBulkDelete = () => {
+    if (!data || selectedIds.length === 0) return;
+    setModalAction({
+      type: 'confirm',
+      message: `選択した${selectedIds.length}件のデータを削除しますか？`,
+      onConfirm: async () => {
+        const newTransactions = data.transactions.filter(tx => !selectedIds.includes(tx.id));
+        const newData = { ...data, transactions: newTransactions };
+
+        const success = await saveData(newData);
+        if (success) {
+          setData(newData);
+          setSelectedIds([]);
+        } else {
+          setModalAction({ type: 'alert', message: '削除に失敗しました。' });
+          return;
+        }
+        setModalAction(null);
+      }
+    });
   };
 
   if (loading) return <div className="animate-fade-in">読み込み中...</div>;
 
   if (error) {
     return (
-      <div className="card animate-fade-in">
-        <p style={{ color: 'var(--danger-color)' }}>{error}</p>
-        <a href="/settings" className="btn" style={{ marginTop: '1rem' }}>設定画面へ</a>
-      </div>
+      <>
+        <div className="card animate-fade-in" style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', lineHeight: 1.6 }}>
+            {error}
+          </p>
+          <button className="btn btn-secondary" onClick={() => {
+            setModalAction({
+              type: 'confirm',
+              message: 'ログインせずにアプリの機能を試すことができますが、入力したデータはクラウドに保存されず、ブラウザのデータが消えると失われます。このまま進みますか？',
+              onConfirm: () => {
+                sessionStorage.setItem('trial_mode', 'true');
+                window.location.reload();
+              }
+            });
+          }}>
+             ログインせずに使う
+          </button>
+        </div>
+        {modalAction && mounted && createPortal(
+          <div className="drawer-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={() => setModalAction(null)}>
+            <div className="card" style={{ minWidth: '320px', maxWidth: '400px', zIndex: 101, animation: 'fadeIn 0.2s ease forwards', border: '1px solid var(--border-color)' }} onClick={e => e.stopPropagation()}>
+              <h3 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--danger-color)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                ⚠️ 確認！！
+              </h3>
+              <p style={{ color: 'var(--text-primary)', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+                {modalAction.message}
+              </p>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                {modalAction.type === 'confirm' && (
+                  <button className="btn btn-secondary" onClick={() => setModalAction(null)} style={{ padding: '0.5rem 1rem' }}>キャンセル</button>
+                )}
+                <button className="btn" style={{ backgroundColor: 'var(--danger-color)', padding: '0.5rem 1rem' }} onClick={() => {
+                  if (modalAction.onConfirm) modalAction.onConfirm();
+                  else setModalAction(null);
+                }}>OK</button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+      </>
     );
   }
 
@@ -181,6 +256,18 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
     const matchCategory = filterCategory === 'all' || t.category === filterCategory;
     return matchMonth && matchCategory;
   });
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
+  const toggleAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(filteredTx.map(tx => tx.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
 
   const title = type === 'income' ? '収入' : '支出';
   const color = type === 'income' ? 'var(--success-color)' : 'var(--danger-color)';
@@ -253,6 +340,29 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
       document.body
       )}
 
+      {modalAction && mounted && createPortal(
+        <div className="drawer-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={() => setModalAction(null)}>
+          <div className="card" style={{ minWidth: '320px', maxWidth: '400px', zIndex: 101, animation: 'fadeIn 0.2s ease forwards', border: '1px solid var(--border-color)' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--danger-color)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              ⚠️ 確認！！
+            </h3>
+            <p style={{ color: 'var(--text-primary)', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+              {modalAction.message}
+            </p>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              {modalAction.type === 'confirm' && (
+                <button className="btn btn-secondary" onClick={() => setModalAction(null)} style={{ padding: '0.5rem 1rem' }}>キャンセル</button>
+              )}
+              <button className="btn" style={{ backgroundColor: 'var(--danger-color)', padding: '0.5rem 1rem' }} onClick={() => {
+                if (modalAction.onConfirm) modalAction.onConfirm();
+                else setModalAction(null);
+              }}>OK</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
     <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2rem' }}>
       <div className="card" style={{ gridColumn: '1 / -1' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
@@ -268,9 +378,20 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
             </select>
           </div>
 
-          <button className="btn" onClick={() => { resetForm(); setIsFormOpen(true); }}>
-            + 新規追加
-          </button>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            {selectedIds.length > 0 && (
+              <button 
+                className="btn" 
+                onClick={handleBulkDelete} 
+                style={{ backgroundColor: 'transparent', border: '1px solid var(--danger-color)', color: 'var(--danger-color)' }}
+              >
+                選択した{selectedIds.length}件を削除
+              </button>
+            )}
+            <button className="btn" onClick={() => { resetForm(); setIsFormOpen(true); }}>
+              + 新規追加
+            </button>
+          </div>
         </div>
         {filteredTx.length === 0 ? (
           <p style={{ color: 'var(--text-secondary)' }}>履歴がありません。</p>
@@ -279,6 +400,14 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
             <table className="table">
               <thead>
                 <tr>
+                  <th style={{ width: '40px', textAlign: 'center' }}>
+                    <input 
+                      type="checkbox" 
+                      onChange={toggleAll} 
+                      checked={filteredTx.length > 0 && selectedIds.length === filteredTx.length}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </th>
                   <th>日付</th>
                   <th>{type === 'income' ? 'クライアント名' : '品名'}</th>
                   <th>カテゴリ</th>
@@ -290,7 +419,15 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
               </thead>
               <tbody>
                 {filteredTx.map(tx => (
-                  <tr key={tx.id}>
+                  <tr key={tx.id} style={{ backgroundColor: selectedIds.includes(tx.id) ? 'var(--bg-surface-hover)' : 'transparent' }}>
+                    <td style={{ textAlign: 'center' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={selectedIds.includes(tx.id)} 
+                        onChange={() => toggleSelection(tx.id)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </td>
                     <td>{tx.date}</td>
                     <td style={{ fontWeight: 500 }}>{tx.clientName || tx.itemName || '-'}</td>
                     <td>

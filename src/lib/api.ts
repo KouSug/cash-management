@@ -23,6 +23,11 @@ function getToken() {
   return localStorage.getItem('google_access_token');
 }
 
+function isTrialMode() {
+  if (typeof window === 'undefined') return false;
+  return sessionStorage.getItem('trial_mode') === 'true';
+}
+
 async function getFolderId(token: string): Promise<string> {
   let folderId = localStorage.getItem('google_folder_id');
   if (folderId) return folderId;
@@ -84,14 +89,30 @@ async function getFileId(token: string, folderId: string): Promise<string | null
 
 export async function loadData(): Promise<AppData | null> {
   const token = getToken();
-  if (!token) return null; // Requires login
+  if (!token) {
+    if (isTrialMode()) {
+      const trialData = sessionStorage.getItem('trial_data');
+      return trialData ? JSON.parse(trialData) : DEFAULT_DATA;
+    }
+    return null; // Requires login
+  }
 
   try {
     const folderId = await getFolderId(token);
     const fileId = await getFileId(token, folderId);
 
     if (!fileId) {
-      return DEFAULT_DATA; // File doesn't exist yet
+      let finalData = DEFAULT_DATA;
+      if (isTrialMode()) {
+        const trialDataStr = sessionStorage.getItem('trial_data');
+        if (trialDataStr) {
+          finalData = JSON.parse(trialDataStr);
+          saveData(finalData); // Save the trial data to Google Drive
+        }
+        sessionStorage.removeItem('trial_mode');
+        sessionStorage.removeItem('trial_data');
+      }
+      return finalData; // File doesn't exist yet
     }
 
     const res = await fetch(
@@ -107,9 +128,26 @@ export async function loadData(): Promise<AppData | null> {
 
     if (!res.ok) throw new Error('Failed to fetch data');
     const text = await res.text();
-    if (!text) return DEFAULT_DATA;
+    let finalData: AppData = text ? JSON.parse(text) : DEFAULT_DATA;
     
-    return JSON.parse(text);
+    // Merge trial data if transitioning from trial mode
+    if (isTrialMode()) {
+      const trialDataStr = sessionStorage.getItem('trial_data');
+      if (trialDataStr) {
+        const trialData: AppData = JSON.parse(trialDataStr);
+        const existingIds = new Set(finalData.transactions.map(t => t.id));
+        const newTransactions = trialData.transactions.filter(t => !existingIds.has(t.id));
+        
+        finalData.transactions = [...finalData.transactions, ...newTransactions];
+        finalData.categories = Array.from(new Set([...finalData.categories, ...trialData.categories]));
+        
+        saveData(finalData); // Save merged data back to Google Drive
+      }
+      sessionStorage.removeItem('trial_mode');
+      sessionStorage.removeItem('trial_data');
+    }
+
+    return finalData;
   } catch (error) {
     console.error('Error loading data:', error);
     if ((error as Error).message === 'Unauthorized') {
@@ -121,7 +159,13 @@ export async function loadData(): Promise<AppData | null> {
 
 export async function saveData(data: AppData): Promise<boolean> {
   const token = getToken();
-  if (!token) return false;
+  if (!token) {
+    if (isTrialMode()) {
+      sessionStorage.setItem('trial_data', JSON.stringify(data));
+      return true;
+    }
+    return false;
+  }
 
   try {
     const folderId = await getFolderId(token);

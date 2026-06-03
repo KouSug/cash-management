@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 import Providers from "@/components/Providers";
+import HeaderAuth from "@/components/HeaderAuth";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cash Management App",
+  title: "CashFlow",
   description: "個人事業主向け収支管理アプリ",
 };
 
@@ -33,15 +34,13 @@ export default function RootLayout({
         <Providers>
           <header className="app-header">
             <div style={{ fontSize: '1.25rem', fontWeight: 700, letterSpacing: '-0.5px' }}>
-              💸 CashFlow
+              📊 CashFlow
             </div>
-            <nav className="nav-links">
+            <nav className="nav-links" style={{ display: 'flex', alignItems: 'center' }}>
               <Link href="/" className="nav-link">ダッシュボード</Link>
               <Link href="/income" className="nav-link">収入</Link>
               <Link href="/expenses" className="nav-link">支出</Link>
-              <Link href="/settings" className="nav-link" style={{ marginLeft: '1rem', color: 'var(--accent-color)' }}>
-                ⚙️ 設定
-              </Link>
+              <HeaderAuth />
             </nav>
           </header>
           <main className="container animate-fade-in">
