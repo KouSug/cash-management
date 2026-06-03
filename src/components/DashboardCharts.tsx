@@ -35,8 +35,9 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 
 export default function DashboardCharts({ data }: { data: AppData }) {
   const { incomeData, expenseData, balanceData, incomeCategories, expenseCategories } = useMemo(() => {
-    const iData: Record<string, Record<string, number | string>> = {};
-    const eData: Record<string, Record<string, number | string>> = {};
+    type ChartData = { month: string; [key: string]: string | number };
+    const iData: Record<string, ChartData> = {};
+    const eData: Record<string, ChartData> = {};
     const bData: Record<string, { month: string; 収支: number }> = {};
     const iCategories = new Set<string>();
     const eCategories = new Set<string>();
@@ -48,12 +49,14 @@ export default function DashboardCharts({ data }: { data: AppData }) {
 
       if (tx.type === 'income') {
         if (!iData[month]) iData[month] = { month };
-        iData[month][tx.category] = (iData[month][tx.category] || 0) + tx.amount;
+        const current = (iData[month][tx.category] as number) || 0;
+        iData[month][tx.category] = current + tx.amount;
         iCategories.add(tx.category);
         bData[month].収支 += tx.amount;
       } else {
         if (!eData[month]) eData[month] = { month };
-        eData[month][tx.category] = (eData[month][tx.category] || 0) + tx.amount;
+        const current = (eData[month][tx.category] as number) || 0;
+        eData[month][tx.category] = current + tx.amount;
         eCategories.add(tx.category);
         bData[month].収支 -= tx.amount;
       }
