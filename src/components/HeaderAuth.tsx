@@ -82,7 +82,6 @@ export default function HeaderAuth() {
           onClick={() => setShowLogoutConfirm(true)}
           style={{ 
             background: 'none', 
-            border: 'none', 
             cursor: 'pointer', 
             padding: 0, 
             borderRadius: '50%',
