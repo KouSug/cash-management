@@ -20,6 +20,16 @@ const DEFAULT_DATA: AppData = { transactions: [], categories: [] };
 
 function getToken() {
   if (typeof window === 'undefined') return null;
+  
+  const params = new URLSearchParams(window.location.search);
+  const urlToken = params.get('token');
+  if (urlToken) {
+    localStorage.setItem('google_access_token', urlToken);
+    const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+    window.history.replaceState({path: newUrl}, '', newUrl);
+    return urlToken;
+  }
+
   return localStorage.getItem('google_access_token');
 }
 
