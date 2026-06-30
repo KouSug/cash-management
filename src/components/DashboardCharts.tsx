@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { AppData } from '@/lib/api';
+import { AppData, isIncome, isExpense, getCategoryName } from '@/lib/api';
 
 const INCOME_COLORS = ['#10b981', '#059669', '#047857', '#34d399', '#6ee7b7'];
 const EXPENSE_COLORS = ['#ef4444', '#f97316', '#f59e0b', '#eab308', '#8b5cf6', '#d946ef', '#f43f5e', '#dc2626', '#ea580c', '#d97706'];
@@ -47,17 +47,19 @@ export default function DashboardCharts({ data }: { data: AppData }) {
       
       if (!bData[month]) bData[month] = { month, 収支: 0 };
 
-      if (tx.type === 'income') {
+      if (isIncome(tx, data.accounts)) {
         if (!iData[month]) iData[month] = { month };
-        const current = (iData[month][tx.category] as number) || 0;
-        iData[month][tx.category] = current + tx.amount;
-        iCategories.add(tx.category);
+        const categoryName = getCategoryName(tx, data.accounts);
+        const current = (iData[month][categoryName] as number) || 0;
+        iData[month][categoryName] = current + tx.amount;
+        iCategories.add(categoryName);
         bData[month].収支 += tx.amount;
-      } else {
+      } else if (isExpense(tx, data.accounts)) {
         if (!eData[month]) eData[month] = { month };
-        const current = (eData[month][tx.category] as number) || 0;
-        eData[month][tx.category] = current + tx.amount;
-        eCategories.add(tx.category);
+        const categoryName = getCategoryName(tx, data.accounts);
+        const current = (eData[month][categoryName] as number) || 0;
+        eData[month][categoryName] = current + tx.amount;
+        eCategories.add(categoryName);
         bData[month].収支 -= tx.amount;
       }
     });

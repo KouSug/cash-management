@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { loadData, type AppData } from '@/lib/api';
+import { loadData, type AppData, isIncome, isExpense, getCategoryName } from '@/lib/api';
 import { createPortal } from 'react-dom';
 import { useGoogleLogin } from '@react-oauth/google';
 
@@ -99,8 +99,9 @@ export default function Dashboard() {
     );
   }
 
-  const income = data?.transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0) || 0;
-  const expense = data?.transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0) || 0;
+  const accounts = data?.accounts || [];
+  const income = data?.transactions.filter(t => isIncome(t, accounts)).reduce((sum, t) => sum + t.amount, 0) || 0;
+  const expense = data?.transactions.filter(t => isExpense(t, accounts)).reduce((sum, t) => sum + t.amount, 0) || 0;
   const balance = income - expense;
 
   const recentTx = data?.transactions.slice(0, 5) || [];
@@ -139,7 +140,7 @@ export default function Dashboard() {
               <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)' }}>
                 <div>
                   <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ padding: '0.2rem 0.5rem', backgroundColor: 'var(--bg-color)', borderRadius: '4px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{tx.category}</span>
+                    <span style={{ padding: '0.2rem 0.5rem', backgroundColor: 'var(--bg-color)', borderRadius: '4px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{getCategoryName(tx, accounts)}</span>
                     {tx.clientName || tx.itemName || '名称未設定'}
                   </div>
                   <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
@@ -148,8 +149,8 @@ export default function Dashboard() {
                     {tx.memo ? ` · ${tx.memo}` : ''}
                   </div>
                 </div>
-                <div style={{ fontWeight: 700, fontSize: '1.25rem', color: tx.type === 'income' ? 'var(--success-color)' : 'var(--danger-color)', display: 'flex', alignItems: 'center' }}>
-                  {tx.type === 'income' ? '+' : '-'}¥{tx.amount.toLocaleString()}
+                <div style={{ fontWeight: 700, fontSize: '1.25rem', color: isIncome(tx, accounts) ? 'var(--success-color)' : 'var(--danger-color)', display: 'flex', alignItems: 'center' }}>
+                  {isIncome(tx, accounts) ? '+' : '-'}¥{tx.amount.toLocaleString()}
                 </div>
               </div>
             ))}

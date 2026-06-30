@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { loadData, saveData, AppData, Transaction } from '@/lib/api';
+import { loadData, saveData, AppData, Transaction, Account, isIncome, isExpense, getCategoryName, getPaymentMethodName } from '@/lib/api';
 import { useGoogleLogin } from '@react-oauth/google';
 
 export default function TransactionView({ type }: { type: 'income' | 'expense' }) {
@@ -17,8 +17,9 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
   const [clientName, setClientName] = useState('');
   const [itemName, setItemName] = useState('');
   const [unitPrice, setUnitPrice] = useState('');
-  const [quantity, setQuantity] = useState('1'); // Default to 1
-  const [category, setCategory] = useState('');
+  const [quantity, setQuantity] = useState('1');
+  const [categoryId, setCategoryId] = useState('');
+  const [paymentMethodId, setPaymentMethodId] = useState('');
   const [memo, setMemo] = useState('');
 
   // Filter states
@@ -50,7 +51,6 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
-    // Set initial date on client to avoid hydration mismatch
     setDate(new Date().toISOString().split('T')[0]);
 
     async function init() {
@@ -59,18 +59,20 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
         setError('画面右上のボタンからGoogleでログインしてください。');
       } else {
         setData(appData);
-        // Set default category based on type
-        const initialCategories = type === 'income' 
-          ? ['本業売上', '副業・スポット売上', 'その他収入'] 
-          : ['ツール・サブスク費', '消耗品費', '旅費交通費', '接待交際費', '新聞図書費・研修費', '地代家賃', '水道光熱費', '通信費', '外注費', '諸経費・雑費'];
-        setCategory(initialCategories[0]);
+        // Set defaults
+        const categories = appData.accounts.filter(a => a.type === (type === 'income' ? 'revenue' : 'expense'));
+        if (categories.length > 0) setCategoryId(categories[0].id);
+        const paymentMethods = appData.accounts.filter(a => a.type === 'asset' || a.type === 'liability');
+        if (paymentMethods.length > 0) {
+          const defaultPayment = paymentMethods.find(a => a.name === '現金') || paymentMethods[0];
+          setPaymentMethodId(defaultPayment.id);
+        }
       }
       setLoading(false);
     }
     init();
   }, [type]);
 
-  // Prevent body scrolling when drawer is open
   useEffect(() => {
     if (isFormOpen) {
       document.body.style.overflow = 'hidden';
@@ -89,22 +91,35 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
     setItemName('');
     setUnitPrice('');
     setQuantity('1');
-    const initialCategories = type === 'income' 
-      ? ['本業売上', '副業・スポット売上', 'その他収入'] 
-      : ['ツール・サブスク費', '消耗品費', '旅費交通費', '接待交際費', '新聞図書費・研修費', '地代家賃', '水道光熱費', '通信費', '外注費', '諸経費・雑費'];
-    setCategory(initialCategories[0]);
+    if (data) {
+      const categories = data.accounts.filter(a => a.type === (type === 'income' ? 'revenue' : 'expense'));
+      if (categories.length > 0) setCategoryId(categories[0].id);
+      const paymentMethods = data.accounts.filter(a => a.type === 'asset' || a.type === 'liability');
+      if (paymentMethods.length > 0) {
+        const defaultPayment = paymentMethods.find(a => a.name === '現金') || paymentMethods[0];
+        setPaymentMethodId(defaultPayment.id);
+      }
+    }
     setMemo('');
     setIsFormOpen(false);
   };
 
   const handleEdit = (tx: Transaction) => {
+    if (!data) return;
     setEditingId(tx.id);
     setDate(tx.date);
     setClientName(tx.clientName || '');
     setItemName(tx.itemName || '');
     setUnitPrice(tx.unitPrice?.toString() || '');
     setQuantity(tx.quantity?.toString() || '1');
-    setCategory(tx.category);
+    
+    if (type === 'income') {
+      setCategoryId(tx.creditAccountId);
+      setPaymentMethodId(tx.debitAccountId);
+    } else {
+      setCategoryId(tx.debitAccountId);
+      setPaymentMethodId(tx.creditAccountId);
+    }
     setMemo(tx.memo || '');
     setIsFormOpen(true);
   };
@@ -130,12 +145,23 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
 
     const calculatedAmount = price * qty;
 
+    let debitId = '';
+    let creditId = '';
+
+    if (type === 'income') {
+      debitId = paymentMethodId;
+      creditId = categoryId;
+    } else {
+      debitId = categoryId;
+      creditId = paymentMethodId;
+    }
+
     const newTx: Transaction = {
-      id: Date.now().toString(),
-      type,
-      amount: calculatedAmount,
+      id: editingId || Date.now().toString(),
       date,
-      category,
+      debitAccountId: debitId,
+      creditAccountId: creditId,
+      amount: calculatedAmount,
       memo,
       unitPrice: price,
       quantity: qty,
@@ -144,7 +170,7 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
     };
 
     const newTransactions = editingId
-      ? data.transactions.map(tx => tx.id === editingId ? { ...newTx, id: editingId } : tx)
+      ? data.transactions.map(tx => tx.id === editingId ? newTx : tx)
       : [newTx, ...data.transactions];
 
     newTransactions.sort((a, b) => {
@@ -270,13 +296,19 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
     );
   }
 
-  const allTypeTx = data?.transactions.filter(t => t.type === type) || [];
+  const accounts = data?.accounts || [];
+  
+  const allTypeTx = data?.transactions.filter(t => type === 'income' ? isIncome(t, accounts) : isExpense(t, accounts)) || [];
   
   const uniqueMonths = Array.from(new Set(allTypeTx.map(t => t.date.substring(0, 7)))).sort().reverse();
   
+  const currentCategories = accounts.filter(a => a.type === (type === 'income' ? 'revenue' : 'expense'));
+  const currentPaymentMethods = accounts.filter(a => a.type === 'asset' || a.type === 'liability');
+
   const filteredTx = allTypeTx.filter(t => {
     const matchMonth = filterMonth === 'all' || t.date.startsWith(filterMonth);
-    const matchCategory = filterCategory === 'all' || t.category === filterCategory;
+    const catId = type === 'income' ? t.creditAccountId : t.debitAccountId;
+    const matchCategory = filterCategory === 'all' || catId === filterCategory;
     return matchMonth && matchCategory;
   });
 
@@ -296,10 +328,6 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
   const color = type === 'income' ? 'var(--success-color)' : 'var(--danger-color)';
 
   const calculatedAmount = (Number(unitPrice) || 0) * (Number(quantity) || 0);
-
-  const currentCategories = type === 'income' 
-    ? ['本業売上', '副業・スポット売上', 'その他収入'] 
-    : ['ツール・サブスク費', '消耗品費', '旅費交通費', '接待交際費', '新聞図書費・研修費', '地代家賃', '水道光熱費', '通信費', '外注費', '諸経費・雑費'];
 
   return (
     <>
@@ -327,9 +355,16 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
         )}
 
         <div className="form-group">
-          <label className="form-label">カテゴリ</label>
-          <select className="form-input" value={category} onChange={e => setCategory(e.target.value)}>
-            {currentCategories.map(c => <option key={c} value={c}>{c}</option>)}
+          <label className="form-label">勘定科目 (カテゴリ)</label>
+          <select className="form-input" value={categoryId} onChange={e => setCategoryId(e.target.value)}>
+            {currentCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">決済手段</label>
+          <select className="form-input" value={paymentMethodId} onChange={e => setPaymentMethodId(e.target.value)}>
+            {currentPaymentMethods.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         </div>
 
@@ -396,8 +431,8 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
               {uniqueMonths.map(m => <option key={m} value={m}>{m.replace('-', '年')}月</option>)}
             </select>
             <select className="form-input" style={{ width: 'auto', marginBottom: 0, padding: '0.5rem 1rem' }} value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
-              <option value="all">すべてのカテゴリ</option>
-              {currentCategories.map(c => <option key={c} value={c}>{c}</option>)}
+              <option value="all">すべての勘定科目</option>
+              {currentCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
 
@@ -433,7 +468,8 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
                   </th>
                   <th>日付</th>
                   <th>{type === 'income' ? 'クライアント名' : '品名'}</th>
-                  <th>カテゴリ</th>
+                  <th>勘定科目</th>
+                  <th>決済手段</th>
                   <th>単価 × 個数</th>
                   <th>金額</th>
                   <th>メモ</th>
@@ -455,7 +491,12 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
                     <td style={{ fontWeight: 500 }}>{tx.clientName || tx.itemName || '-'}</td>
                     <td>
                       <span style={{ padding: '0.2rem 0.5rem', backgroundColor: 'var(--bg-color)', borderRadius: '4px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                        {tx.category}
+                        {getCategoryName(tx, accounts)}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ padding: '0.2rem 0.5rem', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: '4px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        {getPaymentMethodName(tx, accounts)}
                       </span>
                     </td>
                     <td style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>

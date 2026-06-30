@@ -1,9 +1,18 @@
+export type AccountType = 'asset' | 'liability' | 'equity' | 'revenue' | 'expense';
+
+export interface Account {
+  id: string;
+  name: string;
+  type: AccountType;
+  isSystem?: boolean;
+}
+
 export interface Transaction {
   id: string;
-  type: 'income' | 'expense';
-  amount: number;
   date: string; // YYYY-MM-DD
-  category: string;
+  debitAccountId: string;
+  creditAccountId: string;
+  amount: number;
   memo: string;
   unitPrice?: number;
   quantity?: number;
@@ -13,10 +22,113 @@ export interface Transaction {
 
 export interface AppData {
   transactions: Transaction[];
-  categories: string[];
+  accounts: Account[];
 }
 
-const DEFAULT_DATA: AppData = { transactions: [], categories: [] };
+export const DEFAULT_ACCOUNTS: Account[] = [
+  { id: 'a_cash', name: '現金', type: 'asset', isSystem: true },
+  { id: 'a_bank', name: '普通預金', type: 'asset', isSystem: true },
+  { id: 'a_ar', name: '売掛金', type: 'asset', isSystem: true },
+  { id: 'l_card', name: 'クレジットカード', type: 'liability', isSystem: true },
+  { id: 'l_ap', name: '買掛金', type: 'liability', isSystem: true },
+  { id: 'eq_capital', name: '元入金', type: 'equity', isSystem: true },
+  { id: 'eq_owner_draw', name: '事業主貸', type: 'equity', isSystem: true },
+  { id: 'eq_owner_cont', name: '事業主借', type: 'equity', isSystem: true },
+  { id: 'r_sales', name: '売上高', type: 'revenue', isSystem: true },
+  { id: 'r_other', name: '雑収入', type: 'revenue', isSystem: true },
+  { id: 'e_supplies', name: '消耗品費', type: 'expense', isSystem: true },
+  { id: 'e_travel', name: '旅費交通費', type: 'expense', isSystem: true },
+  { id: 'e_comm', name: '通信費', type: 'expense', isSystem: true },
+  { id: 'e_util', name: '水道光熱費', type: 'expense', isSystem: true },
+  { id: 'e_rent', name: '地代家賃', type: 'expense', isSystem: true },
+  { id: 'e_ent', name: '接待交際費', type: 'expense', isSystem: true },
+  { id: 'e_misc', name: '雑費', type: 'expense', isSystem: true },
+];
+
+const DEFAULT_DATA: AppData = { transactions: [], accounts: [...DEFAULT_ACCOUNTS] };
+
+export function migrateData(data: any): AppData {
+  if (!data || !data.transactions) return DEFAULT_DATA;
+  if (data.accounts && (data.transactions.length === 0 || data.transactions[0].debitAccountId)) {
+    return data as AppData;
+  }
+  const accounts = [...DEFAULT_ACCOUNTS];
+  const categoryToAccountId: Record<string, string> = {};
+  if (data.categories) {
+    data.categories.forEach((cat: string) => {
+      const existing = accounts.find(a => a.name === cat);
+      if (existing) {
+        categoryToAccountId[cat] = existing.id;
+      } else {
+        const newId = `usr_${Date.now()}_${Math.random().toString(36).substring(2,9)}`;
+        accounts.push({ id: newId, name: cat, type: 'expense', isSystem: false });
+        categoryToAccountId[cat] = newId;
+      }
+    });
+  }
+  const newTransactions: Transaction[] = data.transactions.map((t: any) => {
+    let debitId = '';
+    let creditId = '';
+    if (t.type === 'income') {
+      const acc = accounts.find(a => a.name === t.category);
+      if (acc && acc.type === 'expense') acc.type = 'revenue';
+      else if (!acc) {
+        const newId = `usr_${Date.now()}_${Math.random().toString(36).substring(2,9)}`;
+        accounts.push({ id: newId, name: t.category, type: 'revenue', isSystem: false });
+        categoryToAccountId[t.category] = newId;
+      }
+    }
+    const catId = categoryToAccountId[t.category] || (t.type === 'income' ? 'r_sales' : 'e_misc');
+    if (t.type === 'income') {
+      debitId = 'a_bank';
+      creditId = catId;
+    } else {
+      debitId = catId;
+      creditId = 'a_cash';
+    }
+    return {
+      id: t.id,
+      date: t.date,
+      debitAccountId: debitId,
+      creditAccountId: creditId,
+      amount: t.amount,
+      memo: t.memo || '',
+      unitPrice: t.unitPrice,
+      quantity: t.quantity,
+      clientName: t.clientName,
+      itemName: t.itemName
+    };
+  });
+  return { transactions: newTransactions, accounts };
+}
+
+export function isIncome(tx: Transaction, accounts: Account[]): boolean {
+  const creditAcc = accounts.find(a => a.id === tx.creditAccountId);
+  return creditAcc?.type === 'revenue';
+}
+
+export function isExpense(tx: Transaction, accounts: Account[]): boolean {
+  const debitAcc = accounts.find(a => a.id === tx.debitAccountId);
+  return debitAcc?.type === 'expense';
+}
+
+export function getCategoryName(tx: Transaction, accounts: Account[]): string {
+  if (isIncome(tx, accounts)) {
+    return accounts.find(a => a.id === tx.creditAccountId)?.name || '不明';
+  } else if (isExpense(tx, accounts)) {
+    return accounts.find(a => a.id === tx.debitAccountId)?.name || '不明';
+  }
+  return '振替';
+}
+
+export function getPaymentMethodName(tx: Transaction, accounts: Account[]): string {
+  if (isIncome(tx, accounts)) {
+    return accounts.find(a => a.id === tx.debitAccountId)?.name || '不明';
+  } else if (isExpense(tx, accounts)) {
+    return accounts.find(a => a.id === tx.creditAccountId)?.name || '不明';
+  }
+  return '不明';
+}
 
 function getToken() {
   if (typeof window === 'undefined') return null;
@@ -102,7 +214,7 @@ export async function loadData(): Promise<AppData | null> {
   if (!token) {
     if (isTrialMode()) {
       const trialData = sessionStorage.getItem('trial_data');
-      return trialData ? JSON.parse(trialData) : DEFAULT_DATA;
+      return trialData ? migrateData(JSON.parse(trialData)) : DEFAULT_DATA;
     }
     return null; // Requires login
   }
@@ -116,7 +228,7 @@ export async function loadData(): Promise<AppData | null> {
       if (isTrialMode()) {
         const trialDataStr = sessionStorage.getItem('trial_data');
         if (trialDataStr) {
-          finalData = JSON.parse(trialDataStr);
+          finalData = migrateData(JSON.parse(trialDataStr));
           saveData(finalData); // Save the trial data to Google Drive
         }
         sessionStorage.removeItem('trial_mode');
@@ -138,18 +250,21 @@ export async function loadData(): Promise<AppData | null> {
 
     if (!res.ok) throw new Error('Failed to fetch data');
     const text = await res.text();
-    const finalData: AppData = text ? JSON.parse(text) : DEFAULT_DATA;
+    const finalData: AppData = text ? migrateData(JSON.parse(text)) : DEFAULT_DATA;
     
     // Merge trial data if transitioning from trial mode
     if (isTrialMode()) {
       const trialDataStr = sessionStorage.getItem('trial_data');
       if (trialDataStr) {
-        const trialData: AppData = JSON.parse(trialDataStr);
+        const trialData: AppData = migrateData(JSON.parse(trialDataStr));
         const existingIds = new Set(finalData.transactions.map(t => t.id));
         const newTransactions = trialData.transactions.filter(t => !existingIds.has(t.id));
         
         finalData.transactions = [...finalData.transactions, ...newTransactions];
-        finalData.categories = Array.from(new Set([...finalData.categories, ...trialData.categories]));
+        
+        const existingAccountIds = new Set(finalData.accounts.map(a => a.id));
+        const newAccounts = trialData.accounts.filter(a => !existingAccountIds.has(a.id));
+        finalData.accounts = [...finalData.accounts, ...newAccounts];
         
         saveData(finalData); // Save merged data back to Google Drive
       }
