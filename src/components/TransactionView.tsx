@@ -220,7 +220,7 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
           <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', lineHeight: 1.6 }}>
             {error}
           </p>
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+          <div className="button-group">
             <button className="btn" onClick={() => login()} style={{ backgroundColor: '#ffffff', color: '#1f2937', padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem', border: '1px solid #d1d5db', fontSize: '0.875rem' }}>
               <svg width="16" height="16" viewBox="0 0 48 48">
                 <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
@@ -390,7 +390,7 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
       <div className="card" style={{ gridColumn: '1 / -1' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
           
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <select className="form-input" style={{ width: 'auto', marginBottom: 0, padding: '0.5rem 1rem' }} value={filterMonth} onChange={e => setFilterMonth(e.target.value)}>
               <option value="all">すべての月</option>
               {uniqueMonths.map(m => <option key={m} value={m}>{m.replace('-', '年')}月</option>)}
@@ -401,7 +401,7 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
             </select>
           </div>
 
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
             {selectedIds.length > 0 && (
               <button 
                 className="btn" 

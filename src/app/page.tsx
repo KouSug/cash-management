@@ -48,7 +48,7 @@ export default function Dashboard() {
           <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', lineHeight: 1.6 }}>
             {error}
           </p>
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+          <div className="button-group">
             <button className="btn" onClick={() => login()} style={{ backgroundColor: '#ffffff', color: '#1f2937', padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem', border: '1px solid #d1d5db', fontSize: '0.875rem' }}>
               <svg width="16" height="16" viewBox="0 0 48 48">
                 <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
@@ -112,15 +112,15 @@ export default function Dashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
         <div className="card" style={{ borderTop: '4px solid var(--success-color)' }}>
           <div style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '0.5rem', fontWeight: 500 }}>総収入</div>
-          <div style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--success-color)', letterSpacing: '-1px' }}>¥{income.toLocaleString()}</div>
+          <div className="stat-value" style={{ color: 'var(--success-color)' }}>¥{income.toLocaleString()}</div>
         </div>
         <div className="card" style={{ borderTop: '4px solid var(--danger-color)' }}>
           <div style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '0.5rem', fontWeight: 500 }}>総支出</div>
-          <div style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--danger-color)', letterSpacing: '-1px' }}>¥{expense.toLocaleString()}</div>
+          <div className="stat-value" style={{ color: 'var(--danger-color)' }}>¥{expense.toLocaleString()}</div>
         </div>
         <div className="card" style={{ borderTop: `4px solid ${balance >= 0 ? 'var(--accent-color)' : 'var(--danger-color)'}` }}>
           <div style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '0.5rem', fontWeight: 500 }}>利益 (残高)</div>
-          <div style={{ fontSize: '2.5rem', fontWeight: 700, letterSpacing: '-1px' }}>¥{balance.toLocaleString()}</div>
+          <div className="stat-value">¥{balance.toLocaleString()}</div>
         </div>
       </div>
 
