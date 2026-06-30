@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { loadData, AppData, Account } from '@/lib/api';
+import { loadData, saveData, AppData, Account } from '@/lib/api';
 
 export default function LedgerPage() {
   const [data, setData] = useState<AppData | null>(null);
@@ -23,6 +23,19 @@ export default function LedgerPage() {
     }
     init();
   }, []);
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('この取引を削除しますか？')) return;
+    if (!data) return;
+    const newTransactions = data.transactions.filter(tx => tx.id !== id);
+    const newData = { ...data, transactions: newTransactions };
+    const success = await saveData(newData);
+    if (success) {
+      setData(newData);
+    } else {
+      alert('削除に失敗しました。');
+    }
+  };
 
   const availableYears = useMemo(() => {
     if (!data) return [];
@@ -106,6 +119,7 @@ export default function LedgerPage() {
                   <th style={{ textAlign: 'right' }}>借方 (Debit)</th>
                   <th style={{ textAlign: 'right' }}>貸方 (Credit)</th>
                   <th style={{ textAlign: 'right' }}>残高</th>
+                  <th style={{ width: '50px' }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -116,6 +130,7 @@ export default function LedgerPage() {
                   <td style={{ textAlign: 'right', fontWeight: 600 }}>
                     ¥{openingBalance.toLocaleString()}
                   </td>
+                  <td></td>
                 </tr>
                 {ledgerEntries.map(tx => {
                   const isDebit = tx.debitAccountId === selectedAccountId;
@@ -154,6 +169,19 @@ export default function LedgerPage() {
                       </td>
                       <td style={{ textAlign: 'right', fontWeight: 600 }}>
                         ¥{runningBalance.toLocaleString()}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', backgroundColor: 'transparent', color: 'var(--danger-color)', border: 'none' }}
+                          onClick={() => handleDelete(tx.id)}
+                          title="削除"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                          </svg>
+                        </button>
                       </td>
                     </tr>
                   );
