@@ -6,6 +6,7 @@ import { loadData, AppData, AccountType } from '@/lib/api';
 export default function ReportsPage() {
   const [data, setData] = useState<AppData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedYear, setSelectedYear] = useState<string>('');
 
   useEffect(() => {
     async function init() {
@@ -16,21 +17,58 @@ export default function ReportsPage() {
     init();
   }, []);
 
-  const balances = useMemo(() => {
-    if (!data) return {};
-    const bals: Record<string, number> = {};
+  const availableYears = useMemo(() => {
+    if (!data) return [];
+    const years = new Set(data.transactions.map(t => t.date.substring(0, 4)));
+    const sorted = Array.from(years).sort().reverse();
+    return sorted.length > 0 ? sorted : [new Date().getFullYear().toString()];
+  }, [data]);
+
+  useEffect(() => {
+    if (availableYears.length > 0 && !selectedYear) {
+      setSelectedYear(availableYears[0]);
+    }
+  }, [availableYears, selectedYear]);
+
+  const { bsBalances, plBalances, priorNetIncome } = useMemo(() => {
+    if (!data || !selectedYear) return { bsBalances: {}, plBalances: {}, priorNetIncome: 0 };
+    
+    const bsBals: Record<string, number> = {};
+    const plBals: Record<string, number> = {};
+    let priorRev = 0;
+    let priorExp = 0;
     
     // Initialize balances
-    data.accounts.forEach(a => bals[a.id] = 0);
+    data.accounts.forEach(a => {
+      bsBals[a.id] = 0;
+      plBals[a.id] = 0;
+    });
 
     data.transactions.forEach(tx => {
+      const year = tx.date.substring(0, 4);
+      const isPrior = year < selectedYear;
+      const isCurrent = year === selectedYear;
+      const isFuture = year > selectedYear;
+
+      if (isFuture) return;
+
       // 借方 (Debit)
       const debitAcc = data.accounts.find(a => a.id === tx.debitAccountId);
       if (debitAcc) {
         if (debitAcc.type === 'asset' || debitAcc.type === 'expense') {
-          bals[debitAcc.id] += tx.amount;
+          bsBals[debitAcc.id] += tx.amount;
         } else {
-          bals[debitAcc.id] -= tx.amount;
+          bsBals[debitAcc.id] -= tx.amount;
+        }
+        
+        if (isCurrent && (debitAcc.type === 'revenue' || debitAcc.type === 'expense')) {
+          if (debitAcc.type === 'expense') plBals[debitAcc.id] += tx.amount;
+          else plBals[debitAcc.id] -= tx.amount;
+        }
+
+        if (isPrior) {
+          if (debitAcc.type === 'revenue') priorRev -= tx.amount;
+          if (debitAcc.type === 'expense') priorExp += tx.amount;
         }
       }
       
@@ -38,14 +76,24 @@ export default function ReportsPage() {
       const creditAcc = data.accounts.find(a => a.id === tx.creditAccountId);
       if (creditAcc) {
         if (creditAcc.type === 'liability' || creditAcc.type === 'equity' || creditAcc.type === 'revenue') {
-          bals[creditAcc.id] += tx.amount;
+          bsBals[creditAcc.id] += tx.amount;
         } else {
-          bals[creditAcc.id] -= tx.amount;
+          bsBals[creditAcc.id] -= tx.amount;
+        }
+
+        if (isCurrent && (creditAcc.type === 'revenue' || creditAcc.type === 'expense')) {
+          if (creditAcc.type === 'revenue') plBals[creditAcc.id] += tx.amount;
+          else plBals[creditAcc.id] -= tx.amount;
+        }
+
+        if (isPrior) {
+          if (creditAcc.type === 'revenue') priorRev += tx.amount;
+          if (creditAcc.type === 'expense') priorExp -= tx.amount;
         }
       }
     });
-    return bals;
-  }, [data]);
+    return { bsBalances: bsBals, plBalances: plBals, priorNetIncome: priorRev - priorExp };
+  }, [data, selectedYear]);
 
   if (loading) return <div>読み込み中...</div>;
   if (!data) return <div>データがありません。</div>;
@@ -57,23 +105,30 @@ export default function ReportsPage() {
   const liabilities = accounts.filter(a => a.type === 'liability');
   const equity = accounts.filter(a => a.type === 'equity');
 
-  const totalAssets = assets.reduce((sum, a) => sum + balances[a.id], 0);
-  const totalLiabilities = liabilities.reduce((sum, a) => sum + balances[a.id], 0);
-  const totalEquity = equity.reduce((sum, a) => sum + balances[a.id], 0);
+  const totalAssets = assets.reduce((sum, a) => sum + bsBalances[a.id], 0);
+  const totalLiabilities = liabilities.reduce((sum, a) => sum + bsBalances[a.id], 0);
+  const totalEquity = equity.reduce((sum, a) => sum + bsBalances[a.id], 0);
 
   // PL (損益計算書)
   const revenue = accounts.filter(a => a.type === 'revenue');
   const expenses = accounts.filter(a => a.type === 'expense');
 
-  const totalRevenue = revenue.reduce((sum, a) => sum + balances[a.id], 0);
-  const totalExpenses = expenses.reduce((sum, a) => sum + balances[a.id], 0);
+  const totalRevenue = revenue.reduce((sum, a) => sum + plBalances[a.id], 0);
+  const totalExpenses = expenses.reduce((sum, a) => sum + plBalances[a.id], 0);
   
   // 当期純利益 (Net Income) = 収益 - 費用
   const netIncome = totalRevenue - totalExpenses;
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      <h1 style={{ fontSize: '2rem', fontWeight: 700, letterSpacing: '-0.5px' }}>決算書 (青色申告対応)</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1 style={{ fontSize: '2rem', fontWeight: 700, letterSpacing: '-0.5px' }}>決算書 (青色申告対応)</h1>
+        <select className="form-input" style={{ width: 'auto', marginBottom: 0, padding: '0.5rem 1rem' }} value={selectedYear} onChange={e => setSelectedYear(e.target.value)}>
+          {availableYears.map(year => (
+            <option key={year} value={year}>{year}年度</option>
+          ))}
+        </select>
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem' }}>
         
@@ -83,10 +138,10 @@ export default function ReportsPage() {
           
           <h3 style={{ fontSize: '1rem', color: 'var(--success-color)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>売上金額等 (収益)</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
-            {revenue.map(a => (
+            {revenue.map(a => plBalances[a.id] > 0 && (
               <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>{a.name}</span>
-                <span>¥{balances[a.id].toLocaleString()}</span>
+                <span>¥{plBalances[a.id].toLocaleString()}</span>
               </div>
             ))}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', marginTop: '0.5rem', borderTop: '1px dashed var(--border-color)', paddingTop: '0.5rem' }}>
@@ -97,10 +152,10 @@ export default function ReportsPage() {
 
           <h3 style={{ fontSize: '1rem', color: 'var(--danger-color)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>経費 (費用)</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
-            {expenses.map(a => balances[a.id] > 0 && (
+            {expenses.map(a => plBalances[a.id] > 0 && (
               <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>{a.name}</span>
-                <span>¥{balances[a.id].toLocaleString()}</span>
+                <span>¥{plBalances[a.id].toLocaleString()}</span>
               </div>
             ))}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', marginTop: '0.5rem', borderTop: '1px dashed var(--border-color)', paddingTop: '0.5rem' }}>
@@ -126,10 +181,10 @@ export default function ReportsPage() {
             <div style={{ flex: 1 }}>
               <h3 style={{ fontSize: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>資産の部</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {assets.map(a => balances[a.id] !== 0 && (
+                {assets.map(a => bsBalances[a.id] !== 0 && (
                   <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span>{a.name}</span>
-                    <span>¥{balances[a.id].toLocaleString()}</span>
+                    <span>¥{bsBalances[a.id].toLocaleString()}</span>
                   </div>
                 ))}
               </div>
@@ -139,22 +194,28 @@ export default function ReportsPage() {
             <div style={{ flex: 1 }}>
               <h3 style={{ fontSize: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>負債の部</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
-                {liabilities.map(a => balances[a.id] !== 0 && (
+                {liabilities.map(a => bsBalances[a.id] !== 0 && (
                   <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span>{a.name}</span>
-                    <span>¥{balances[a.id].toLocaleString()}</span>
+                    <span>¥{bsBalances[a.id].toLocaleString()}</span>
                   </div>
                 ))}
               </div>
 
               <h3 style={{ fontSize: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>資本の部</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {equity.map(a => balances[a.id] !== 0 && (
+                {equity.map(a => bsBalances[a.id] !== 0 && (
                   <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span>{a.name}</span>
-                    <span>¥{balances[a.id].toLocaleString()}</span>
+                    <span>¥{bsBalances[a.id].toLocaleString()}</span>
                   </div>
                 ))}
+                {priorNetIncome !== 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>繰越利益剰余金</span>
+                    <span>¥{priorNetIncome.toLocaleString()}</span>
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--accent-color)', fontWeight: 600 }}>
                   <span>当期純利益</span>
                   <span>¥{netIncome.toLocaleString()}</span>
@@ -170,8 +231,8 @@ export default function ReportsPage() {
             </div>
             <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between' }}>
               <span>負債・資本合計</span>
-              {/* 負債 + 元入金等 + 当期純利益 */}
-              <span>¥{(totalLiabilities + totalEquity + netIncome).toLocaleString()}</span>
+              {/* 負債 + 元入金等 + 繰越利益 + 当期純利益 */}
+              <span>¥{(totalLiabilities + totalEquity + priorNetIncome + netIncome).toLocaleString()}</span>
             </div>
           </div>
         </div>

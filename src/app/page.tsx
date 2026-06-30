@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { loadData, type AppData, isIncome, isExpense, getCategoryName } from '@/lib/api';
 import { createPortal } from 'react-dom';
 import { useGoogleLogin } from '@react-oauth/google';
@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [error, setError] = useState('');
   const [modalAction, setModalAction] = useState<{ type: 'alert' | 'confirm', message: string; onConfirm?: () => void } | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [selectedYear, setSelectedYear] = useState<string>('');
 
   const login = useGoogleLogin({
     scope: 'https://www.googleapis.com/auth/drive.file profile email',
@@ -37,6 +38,19 @@ export default function Dashboard() {
     }
     init();
   }, []);
+
+  const availableYears = useMemo(() => {
+    if (!data) return [];
+    const years = new Set(data.transactions.map(t => t.date.substring(0, 4)));
+    const sorted = Array.from(years).sort().reverse();
+    return sorted.length > 0 ? sorted : [new Date().getFullYear().toString()];
+  }, [data]);
+
+  useEffect(() => {
+    if (availableYears.length > 0 && !selectedYear) {
+      setSelectedYear(availableYears[0]);
+    }
+  }, [availableYears, selectedYear]);
 
   if (loading) return <div className="animate-fade-in">読み込み中...</div>;
 
@@ -100,15 +114,23 @@ export default function Dashboard() {
   }
 
   const accounts = data?.accounts || [];
-  const income = data?.transactions.filter(t => isIncome(t, accounts)).reduce((sum, t) => sum + t.amount, 0) || 0;
-  const expense = data?.transactions.filter(t => isExpense(t, accounts)).reduce((sum, t) => sum + t.amount, 0) || 0;
+  const yearTx = data?.transactions.filter(t => t.date.startsWith(selectedYear)) || [];
+  const income = yearTx.filter(t => isIncome(t, accounts)).reduce((sum, t) => sum + t.amount, 0) || 0;
+  const expense = yearTx.filter(t => isExpense(t, accounts)).reduce((sum, t) => sum + t.amount, 0) || 0;
   const balance = income - expense;
 
-  const recentTx = data?.transactions.slice(0, 5) || [];
+  const recentTx = yearTx.slice(0, 5) || [];
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      <h1 style={{ fontSize: '2rem', fontWeight: 700, letterSpacing: '-0.5px' }}>ダッシュボード</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1 style={{ fontSize: '2rem', fontWeight: 700, letterSpacing: '-0.5px' }}>ダッシュボード</h1>
+        <select className="form-input" style={{ width: 'auto', marginBottom: 0, padding: '0.5rem 1rem' }} value={selectedYear} onChange={e => setSelectedYear(e.target.value)}>
+          {availableYears.map(year => (
+            <option key={year} value={year}>{year}年度</option>
+          ))}
+        </select>
+      </div>
       
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
         <div className="card" style={{ borderTop: '4px solid var(--success-color)' }}>
@@ -125,7 +147,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {data && <DashboardCharts data={data} />}
+      {data && <DashboardCharts data={{...data, transactions: yearTx}} />}
 
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
