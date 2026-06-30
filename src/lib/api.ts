@@ -37,6 +37,7 @@ export const DEFAULT_ACCOUNTS: Account[] = [
   { id: 'r_sales', name: '売上高', type: 'revenue', isSystem: true },
   { id: 'r_other', name: '雑収入', type: 'revenue', isSystem: true },
   { id: 'e_supplies', name: '消耗品費', type: 'expense', isSystem: true },
+  { id: 'e_fee', name: '支払手数料', type: 'expense', isSystem: true },
   { id: 'e_travel', name: '旅費交通費', type: 'expense', isSystem: true },
   { id: 'e_comm', name: '通信費', type: 'expense', isSystem: true },
   { id: 'e_util', name: '水道光熱費', type: 'expense', isSystem: true },

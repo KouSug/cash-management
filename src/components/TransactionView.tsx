@@ -20,6 +20,7 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
   const [quantity, setQuantity] = useState('1');
   const [categoryId, setCategoryId] = useState('');
   const [paymentMethodId, setPaymentMethodId] = useState('');
+  const [feeAmount, setFeeAmount] = useState('');
   const [memo, setMemo] = useState('');
 
   // Filter states
@@ -91,6 +92,7 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
     setItemName('');
     setUnitPrice('');
     setQuantity('1');
+    setFeeAmount('');
     if (data) {
       const categories = data.accounts.filter(a => a.type === (type === 'income' ? 'revenue' : 'expense'));
       if (categories.length > 0) setCategoryId(categories[0].id);
@@ -144,6 +146,7 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
     }
 
     const calculatedAmount = price * qty;
+    const fee = Number(feeAmount) || 0;
 
     let debitId = '';
     let creditId = '';
@@ -169,9 +172,27 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
       itemName: type === 'expense' ? itemName : undefined,
     };
 
-    const newTransactions = editingId
-      ? data.transactions.map(tx => tx.id === editingId ? newTx : tx)
-      : [newTx, ...data.transactions];
+    let newTransactions = [...data.transactions];
+    if (editingId) {
+      newTransactions = newTransactions.map(tx => tx.id === editingId ? newTx : tx);
+    } else {
+      newTransactions.unshift(newTx);
+      if (type === 'income' && fee > 0) {
+        const feeAcc = data.accounts.find(a => a.name === '支払手数料') || data.accounts.find(a => a.type === 'expense');
+        const feeTx: Transaction = {
+          id: (Date.now() + 1).toString(),
+          date,
+          debitAccountId: feeAcc?.id || 'e_fee',
+          creditAccountId: debitId,
+          amount: fee,
+          memo: `[システム手数料] ${memo}`,
+          unitPrice: fee,
+          quantity: 1,
+          itemName: 'システム手数料'
+        };
+        newTransactions.unshift(feeTx);
+      }
+    }
 
     newTransactions.sort((a, b) => {
       const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
@@ -378,10 +399,26 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
             <input type="number" className="form-input" value={quantity} onChange={e => setQuantity(e.target.value)} min="1" />
           </div>
         </div>
+
+        {type === 'income' && !editingId && (
+          <div className="form-group">
+            <label className="form-label">引かれる手数料 (ある場合のみ)</label>
+            <input type="number" className="form-input" value={feeAmount} onChange={e => setFeeAmount(e.target.value)} placeholder="0" />
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>※入力すると、手数料の支出データが自動で作成され手取りが計算されます</span>
+          </div>
+        )}
         
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', padding: '1rem', backgroundColor: 'var(--bg-color)', borderRadius: '8px' }}>
-            <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>合計金額</span>
-            <span style={{ fontSize: '1.5rem', fontWeight: 700, color }}>¥{calculatedAmount.toLocaleString()}</span>
+        <div style={{ backgroundColor: 'var(--bg-color)', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: (type === 'income' && (Number(feeAmount) || 0) > 0) ? '0.5rem' : '0' }}>
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{type === 'income' ? '総額 (売上)' : '合計金額'}</span>
+              <span style={{ fontSize: '1.5rem', fontWeight: 700, color }}>¥{calculatedAmount.toLocaleString()}</span>
+          </div>
+          {type === 'income' && (Number(feeAmount) || 0) > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed var(--border-color)', paddingTop: '0.5rem' }}>
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>手取り (口座への入金額)</span>
+              <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>¥{(calculatedAmount - (Number(feeAmount) || 0)).toLocaleString()}</span>
+            </div>
+          )}
         </div>
 
         <div className="form-group">
