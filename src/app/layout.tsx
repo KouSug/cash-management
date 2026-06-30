@@ -40,6 +40,7 @@ export default function RootLayout({
               <Link href="/" className="nav-link">ダッシュボード</Link>
               <Link href="/income" className="nav-link">収入</Link>
               <Link href="/expenses" className="nav-link">支出</Link>
+              <Link href="/transfer" className="nav-link">振替</Link>
               <Link href="/ledger" className="nav-link">元帳</Link>
               <Link href="/reports" className="nav-link">決算書</Link>
               <Link href="/settings" className="nav-link">設定</Link>
