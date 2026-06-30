@@ -37,7 +37,7 @@ export default function LedgerPage() {
     }
   }, [availableYears, selectedYear]);
 
-  if (loading) return <div>読み込み中...</div>;
+  if (loading || !selectedYear) return <div className="animate-fade-in">読み込み中...</div>;
   if (!data) return <div>データがありません。ログインしてください。</div>;
 
   const accounts = data.accounts;

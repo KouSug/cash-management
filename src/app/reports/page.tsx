@@ -95,7 +95,7 @@ export default function ReportsPage() {
     return { bsBalances: bsBals, plBalances: plBals, priorNetIncome: priorRev - priorExp };
   }, [data, selectedYear]);
 
-  if (loading) return <div>読み込み中...</div>;
+  if (loading || !selectedYear) return <div className="animate-fade-in">読み込み中...</div>;
   if (!data) return <div>データがありません。</div>;
 
   const accounts = data.accounts;
