@@ -68,6 +68,10 @@ export function migrateData(data: any): AppData {
     });
   }
   const newTransactions: Transaction[] = data.transactions.map((t: any) => {
+    if (t.debitAccountId && t.creditAccountId) {
+      return t;
+    }
+    
     let debitId = '';
     let creditId = '';
     if (t.type === 'income') {
