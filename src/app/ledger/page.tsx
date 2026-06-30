@@ -88,7 +88,7 @@ export default function LedgerPage() {
           <label style={{ fontWeight: 600 }}>勘定科目を選択:</label>
           <select className="form-input" style={{ width: 'auto', marginBottom: 0 }} value={selectedAccountId} onChange={e => setSelectedAccountId(e.target.value)}>
             {accounts.map(acc => (
-              <option key={acc.id} value={acc.id}>{acc.name} ({acc.type})</option>
+              <option key={acc.id} value={acc.id}>{acc.name}</option>
             ))}
           </select>
         </div>

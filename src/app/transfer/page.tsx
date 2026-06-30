@@ -109,7 +109,7 @@ export default function TransferPage() {
             >
               <option value="">選択してください</option>
               {transferAccounts.map(acc => (
-                <option key={acc.id} value={acc.id}>{acc.name} ({acc.type})</option>
+                <option key={acc.id} value={acc.id}>{acc.name}</option>
               ))}
             </select>
           </div>
@@ -131,7 +131,7 @@ export default function TransferPage() {
             >
               <option value="">選択してください</option>
               {transferAccounts.map(acc => (
-                <option key={acc.id} value={acc.id}>{acc.name} ({acc.type})</option>
+                <option key={acc.id} value={acc.id}>{acc.name}</option>
               ))}
             </select>
           </div>
