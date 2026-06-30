@@ -342,7 +342,7 @@ export default function TransactionView({ type }: { type: 'income' | 'expense' }
   const uniqueMonths = Array.from(new Set(allTypeTx.map(t => t.date.substring(0, 7)))).sort().reverse();
   
   const currentCategories = accounts.filter(a => a.type === (type === 'income' ? 'revenue' : 'expense'));
-  const currentPaymentMethods = accounts.filter(a => a.type === 'asset' || a.type === 'liability');
+  const currentPaymentMethods = accounts.filter(a => a.type === 'asset' || a.type === 'liability' || a.type === 'equity');
 
   const filteredTx = allTypeTx.filter(t => {
     const matchMonth = filterMonth === 'all' || t.date.startsWith(filterMonth);
